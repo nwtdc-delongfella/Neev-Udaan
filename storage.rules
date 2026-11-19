@@ -1,0 +1,24 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function member(wid) {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/workspaces/$(wid)/members/$(request.auth.uid));
+    }
+
+    // Brand logos: members may upload images up to 5 MB.
+    match /workspaces/{wid}/brands/{bid}/{file} {
+      allow read: if member(wid);
+      allow write: if member(wid) && file.matches('logo.*')
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(png|jpeg|webp)');
+    }
+
+    // Generated posts: readable by members, written only by Cloud Functions.
+    match /workspaces/{wid}/brands/{bid}/posts/{pid}/{file} {
+      allow read: if member(wid);
+      allow delete: if member(wid);
+      allow write: if false;
+    }
+  }
+}

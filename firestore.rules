@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function member(wid) {
+      return signedIn() && exists(/databases/$(database)/documents/workspaces/$(wid)/members/$(request.auth.uid));
+    }
+    function role(wid) {
+      return get(/databases/$(database)/documents/workspaces/$(wid)/members/$(request.auth.uid)).data.role;
+    }
+    function admin(wid) { return member(wid) && role(wid) in ['owner', 'admin']; }
+
+    // Users can read/write only their own profile (plan and workspace fields are server-managed).
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && !request.resource.data.diff(resource == null ? {} : resource.data)
+             .affectedKeys().hasAny(['defaultWorkspaceId']);
+    }
+
+    match /workspaces/{wid} {
+      // Workspaces are created by the createWorkspace function. Plan/owner are server-managed.
+      allow read: if member(wid);
+      allow update: if admin(wid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+
+      match /members/{uid} {
+        allow read: if member(wid);
+        // Invitations and role changes go through server functions (Phase 4).
+        allow write: if false;
+      }
+
+      match /usage/{month} {
+        allow read: if member(wid);
+        allow write: if false;
+      }
+
+      match /brands/{bid} {
+        allow read: if member(wid);
+        allow create: if false; // created by functions so plan limits apply
+        allow delete: if admin(wid);
+        allow update: if member(wid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'name', 'industry', 'description', 'location', 'audience', 'tone', 'language',
+               'website', 'phone', 'logoPath', 'colors', 'colorSource', 'updatedAt'])
+          && (!('logoPath' in request.resource.data)
+              || request.resource.data.logoPath.matches('workspaces/' + wid + '/brands/' + bid + '/logo.*'));
+
+        // AI output is written only by Cloud Functions.
+        match /ideaSets/{sid} {
+          allow read: if member(wid);
+          allow write: if false;
+        }
+        match /posts/{pid} {
+          allow read: if member(wid);
+          allow delete: if member(wid);
+          allow create, update: if false;
+        }
+      }
+    }
+  }
+}

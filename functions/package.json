@@ -1,0 +1,29 @@
+{
+  "name": "neev-udaan-functions",
+  "private": true,
+  "type": "commonjs",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test lib/test/*.test.js",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth,storage",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0",
+    "@expo-google-fonts/poppins": "^0.4.1",
+    "@google/genai": "^3.6.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
