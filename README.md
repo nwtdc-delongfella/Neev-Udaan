@@ -203,6 +203,16 @@ flutter run
 
 `flutterfire configure` replaces the placeholder `lib/firebase_options.dart` with your project's real keys. To try the app in a browser, use `flutter run -d chrome`. For Windows and macOS desktop, use `flutter run -d windows` or `flutter run -d macos`.
 
+### Troubleshooting a first deploy
+
+These came up when deploying to the `neev-udaan` project:
+
+- **"Build failed … missing permission on the build service account"**: grant `roles/cloudbuild.builds.builder` to `PROJECT_NUMBER-compute@developer.gserviceaccount.com`.
+- **"Failed to set invoker … not belong to a permitted customer"**: the Google Workspace organization's *Domain restricted sharing* policy blocks public apps. Override it for this project only: IAM & Admin → Organization Policies → Domain restricted sharing → Override → Allow All. Then make the callable functions public (`roles/run.invoker` for `allUsers`), or redeploy changed functions.
+- **The app shows "internal" right after sign-up**: the functions aren't public yet (see the previous point).
+- **Logo upload is denied**: grant `roles/firebaserules.firestoreServiceAgent` to `service-PROJECT_NUMBER@gcp-sa-firebasestorage.iam.gserviceaccount.com`, so the Storage rules can check membership in Firestore.
+- **Images fail**: enable the Vertex AI API and grant `roles/aiplatform.user` to the compute service account.
+
 ### Local development with emulators
 
 ```bash
