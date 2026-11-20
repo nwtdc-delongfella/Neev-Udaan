@@ -57,6 +57,9 @@ test("auth URLs carry state, redirect and scopes", () => {
   assert.equal(fb.searchParams.get("redirect_uri"), cfg.redirectUri);
   assert.equal(fb.searchParams.get("auth_type"), "rerequest");
   assert.ok(fb.searchParams.get("scope")!.includes("instagram_content_publish"));
+  const biz = new URL(facebookAuthUrl({ ...cfg, metaLoginConfigId: "cfg123" }, "abc"));
+  assert.equal(biz.searchParams.get("config_id"), "cfg123");
+  assert.equal(biz.searchParams.get("scope"), null);
   const g = new URL(googleAuthUrl(cfg, "xyz"));
   assert.equal(g.searchParams.get("access_type"), "offline");
   assert.ok(g.searchParams.get("scope")!.includes("business.manage"));

@@ -29,6 +29,7 @@ const META_APP_ID = defineString("META_APP_ID", { default: "" });
 const INSTAGRAM_APP_ID = defineString("INSTAGRAM_APP_ID", { default: "" });
 const GOOGLE_CLIENT_ID = defineString("GOOGLE_CLIENT_ID", { default: "" });
 const META_GRAPH_VERSION = defineString("META_GRAPH_VERSION", { default: "v24.0" });
+const META_LOGIN_CONFIG_ID = defineString("META_LOGIN_CONFIG_ID", { default: "" });
 const OAUTH_REDIRECT_URI = defineString("OAUTH_REDIRECT_URI", { default: "" });
 const META_APP_SECRET = defineSecret("META_APP_SECRET");
 const INSTAGRAM_APP_SECRET = defineSecret("INSTAGRAM_APP_SECRET");
@@ -52,6 +53,7 @@ function config(): OAuthConfig {
     metaAppId: META_APP_ID.value(),
     metaAppSecret: META_APP_SECRET.value(),
     metaGraphVersion: META_GRAPH_VERSION.value(),
+    metaLoginConfigId: META_LOGIN_CONFIG_ID.value() || undefined,
     instagramAppId: INSTAGRAM_APP_ID.value(),
     instagramAppSecret: INSTAGRAM_APP_SECRET.value(),
     googleClientId: GOOGLE_CLIENT_ID.value(),
