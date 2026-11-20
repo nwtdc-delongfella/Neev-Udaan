@@ -1,11 +1,11 @@
 {
-    "name": "neev_udaan",
-    "short_name": "neev_udaan",
+    "name": "Neev Udaan",
+    "short_name": "Neev Udaan",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0E7C86",
+    "theme_color": "#0E7C86",
+    "description": "AI social media posts and review replies for your business.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

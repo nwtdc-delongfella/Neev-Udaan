@@ -1,14 +1,29 @@
-// PLACEHOLDER. Replace this file by running, from the app/ folder:
+// Firebase settings for the neev-udaan project.
+// Web is configured. For Android, iOS, macOS and Windows, run from the app/ folder:
 //
 //   dart pub global activate flutterfire_cli
-//   flutterfire configure --project=YOUR_FIREBASE_PROJECT_ID
+//   flutterfire configure --project=neev-udaan
 //
-// That command registers the Android, iOS, macOS, Windows and web apps in your
-// Firebase project and overwrites this file with the real keys.
+// which registers those apps and regenerates this file with all platforms.
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DefaultFirebaseOptions {
-  static FirebaseOptions get currentPlatform => throw UnsupportedError(
-        'Firebase is not configured yet. Run `flutterfire configure` in the app/ folder.',
-      );
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) return web;
+    throw UnsupportedError(
+      'This platform is not configured yet. Run `flutterfire configure --project=neev-udaan` in the app/ folder.',
+    );
+  }
+
+  // Firebase web config is public by design; access is controlled by security rules.
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAl6mdi-AyPQbRR5zkOyVi0kRRG7h7dOEY',
+    appId: '1:42776937513:web:e45d39d6e7450de7594838',
+    messagingSenderId: '42776937513',
+    projectId: 'neev-udaan',
+    authDomain: 'neev-udaan.firebaseapp.com',
+    storageBucket: 'neev-udaan.firebasestorage.app',
+    measurementId: 'G-RPCVWBQXR1',
+  );
 }
