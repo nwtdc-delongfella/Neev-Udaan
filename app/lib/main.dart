@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 
 import 'firebase_options.dart';
 import 'screens/home.dart';
-import 'screens/onboarding.dart';
 import 'screens/sign_in.dart';
 import 'services/api.dart';
 
@@ -24,6 +23,7 @@ class NeevUdaanApp extends StatelessWidget {
     ThemeData theme(Brightness b) => ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: brandSeed, brightness: b),
           useMaterial3: true,
+          fontFamily: 'Poppins',
           inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
         );
     return MaterialApp(
@@ -52,7 +52,7 @@ class AuthGate extends StatelessWidget {
           builder: (context, ws) {
             if (!ws.hasData && ws.connectionState == ConnectionState.waiting) return const _Loading();
             final wid = ws.data;
-            return wid == null ? const OnboardingScreen() : HomeScreen(workspaceId: wid);
+            return wid == null ? const _CreateWorkspace() : HomeScreen(workspaceId: wid);
           },
         );
       },
@@ -64,4 +64,45 @@ class _Loading extends StatelessWidget {
   const _Loading();
   @override
   Widget build(BuildContext context) => const Scaffold(body: Center(child: CircularProgressIndicator()));
+}
+
+/// First sign-in: create the user's workspace silently, then the setup flow takes over.
+class _CreateWorkspace extends StatefulWidget {
+  const _CreateWorkspace();
+  @override
+  State<_CreateWorkspace> createState() => _CreateWorkspaceState();
+}
+
+class _CreateWorkspaceState extends State<_CreateWorkspace> {
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _create();
+  }
+
+  Future<void> _create() async {
+    setState(() => _error = null);
+    try {
+      await Api.instance.createWorkspace();
+    } catch (e) {
+      if (mounted) setState(() => _error = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error == null) return const _Loading();
+    return Scaffold(
+      body: Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('$_error'),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: _create, child: const Text('Try again')),
+          TextButton(onPressed: FirebaseAuth.instance.signOut, child: const Text('Sign out')),
+        ]),
+      ),
+    );
+  }
 }

@@ -1,6 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Anything not matched below (e.g. oauthStates) is denied by default.
 
     function signedIn() { return request.auth != null; }
     function member(wid) {
@@ -43,9 +44,19 @@ service cloud.firestore {
         allow update: if member(wid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                'name', 'industry', 'description', 'location', 'audience', 'tone', 'language',
-               'website', 'phone', 'logoPath', 'colors', 'colorSource', 'updatedAt'])
+               'website', 'phone', 'logoPath', 'colors', 'colorSource', 'setupComplete', 'updatedAt'])
           && (!('logoPath' in request.resource.data)
               || request.resource.data.logoPath.matches('workspaces/' + wid + '/brands/' + bid + '/logo.*'));
+
+        // Connected accounts: profile lists and status are readable; only functions write them.
+        match /connections/{provider} {
+          allow read: if member(wid);
+          allow write: if false;
+        }
+        // Encrypted platform tokens: never readable or writable from the app.
+        match /private/{doc} {
+          allow read, write: if false;
+        }
 
         // AI output is written only by Cloud Functions.
         match /ideaSets/{sid} {

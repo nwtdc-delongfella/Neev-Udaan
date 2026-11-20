@@ -33,10 +33,15 @@ class Api {
   Stream<String?> defaultWorkspaceId() =>
       _db.doc('users/$uid').snapshots().map((s) => s.data()?['defaultWorkspaceId'] as String?);
 
+  /// Creates the user's workspace and first brand. Names are optional: they are
+  /// filled in later from the connected Facebook Page or Google profile.
   Future<({String workspaceId, String brandId})> createWorkspace(
-      {required String workspaceName, required String brandName, required String industry}) async {
-    final r = await _call('createWorkspace',
-        {'workspaceName': workspaceName, 'brandName': brandName, 'industry': industry});
+      {String? workspaceName, String? brandName, String? industry}) async {
+    final r = await _call('createWorkspace', {
+      'workspaceName': ?workspaceName,
+      'brandName': ?brandName,
+      'industry': ?industry,
+    });
     return (workspaceId: r['workspaceId'] as String, brandId: r['brandId'] as String);
   }
 
@@ -85,6 +90,41 @@ class Api {
 
   Future<String> downloadUrl(String path) => _storage.ref(path).getDownloadURL();
   Future<Uint8List?> downloadBytes(String path) => _storage.ref(path).getData(15 * 1024 * 1024);
+
+  Future<void> completeSetup(String wid, String bid) => updateBrand(wid, bid, {'setupComplete': true});
+
+  // ---- connected accounts ----
+  Stream<Connection?> connection(String wid, String bid, Provider p) => _db
+      .doc('workspaces/$wid/brands/$bid/connections/${p.name}')
+      .snapshots()
+      .map((s) => s.exists ? Connection.fromDoc(p, s.data()!) : null);
+
+  /// Returns the platform's own sign-in URL to open in the browser.
+  Future<Uri> startConnect(String wid, String bid, Provider p, {bool rerequest = false}) async {
+    final r = await _call('startConnect',
+        {'workspaceId': wid, 'brandId': bid, 'provider': p.name, if (rerequest) 'rerequest': true},
+        timeout: const Duration(seconds: 30));
+    return Uri.parse(r['url'] as String);
+  }
+
+  Future<void> refreshConnection(String wid, String bid, Provider p) =>
+      _call('refreshConnection', {'workspaceId': wid, 'brandId': bid, 'provider': p.name});
+
+  /// Links a profile to the brand. Returns the brand fields that were filled in from it.
+  Future<List<String>> selectProfile(String wid, String bid, Provider p, String candidateId,
+      {bool includeInstagram = true}) async {
+    final r = await _call('selectProfile', {
+      'workspaceId': wid,
+      'brandId': bid,
+      'provider': p.name,
+      'candidateId': candidateId,
+      'includeInstagram': includeInstagram,
+    });
+    return ((r['filled'] as List?) ?? []).cast<String>();
+  }
+
+  Future<void> disconnect(String wid, String bid, Provider p) =>
+      _call('disconnectProvider', {'workspaceId': wid, 'brandId': bid, 'provider': p.name});
 
   // ---- ideas & posts ----
   Future<({String ideaSetId, List<Idea> ideas})> generateIdeas(String wid, String bid,

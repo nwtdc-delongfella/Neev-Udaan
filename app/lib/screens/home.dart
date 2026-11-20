@@ -8,6 +8,7 @@ import 'brand_setup.dart';
 import 'connections.dart';
 import 'create_post.dart';
 import 'library.dart';
+import 'setup_flow.dart';
 
 class HomeScreen extends StatefulWidget {
   final String workspaceId;
@@ -66,12 +67,13 @@ class _HomeScreenState extends State<HomeScreen> {
         final brands = snap.data ?? [];
         if (brands.isEmpty) return const Scaffold(body: Center(child: CircularProgressIndicator()));
         final brand = brands.firstWhere((b) => b.id == _brandId, orElse: () => brands.first);
+        if (!brand.setupComplete) return SetupFlowScreen(key: ValueKey(brand.id), workspaceId: wid, brand: brand);
 
         final pages = [
           CreatePostScreen(workspaceId: wid, brand: brand, onOpenBrand: () => setState(() => _tab = 2)),
           LibraryScreen(workspaceId: wid, brand: brand),
           BrandSetupScreen(workspaceId: wid, brand: brand),
-          const ConnectionsScreen(),
+          ConnectionsScreen(workspaceId: wid, brand: brand),
         ];
 
         final wide = MediaQuery.sizeOf(context).width >= 840;

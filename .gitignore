@@ -5,3 +5,4 @@ functions/node_modules/
 functions/lib/
 functions/test-output/
 functions/.secret.local
+functions/.env.local

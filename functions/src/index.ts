@@ -1,8 +1,5 @@
-import { initializeApp } from "firebase-admin/app";
-import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
-import { setGlobalOptions } from "firebase-functions/v2";
-import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
+import { FieldValue } from "firebase-admin/firestore";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentDeleted } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
@@ -12,50 +9,15 @@ import { brandColorsFromPalette, extractPalette, readableOn } from "./lib/colors
 import { composePost } from "./lib/compose";
 import { generateIdeas as claudeIdeas, type Idea } from "./lib/ideas";
 import { buildImagePrompt, ImagenGenerator, type ImageGenerator } from "./lib/imagegen";
-import { DEFAULT_FORMAT, FORMATS, PLAN_LIMITS, type Brand, type Format, type Layout, type Role } from "./lib/types";
+import { DEFAULT_FORMAT, FORMATS, PLAN_LIMITS, type Brand, type Format, type Layout } from "./lib/types";
+import { bucket, db, ids, loadBrand, parse, requireAuth, requireRole } from "./common";
 
-initializeApp();
-const db = getFirestore();
-const bucket = () => getStorage().bucket();
+export * from "./connections";
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
-// Mumbai region for low latency in India. Imagen runs in IMAGEN_LOCATION (see imagegen.ts).
-setGlobalOptions({ region: "asia-south1", maxInstances: 20 });
-
 let imageGen: ImageGenerator | undefined;
 const getImageGen = () => (imageGen ??= new ImagenGenerator());
-
-// ---------- helpers ----------
-
-function requireAuth(req: CallableRequest): string {
-  if (!req.auth) throw new HttpsError("unauthenticated", "Please sign in first.");
-  return req.auth.uid;
-}
-
-function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
-  const r = schema.safeParse(data);
-  if (!r.success) throw new HttpsError("invalid-argument", r.error.issues.map((i) => i.message).join("; "));
-  return r.data;
-}
-
-const ROLE_RANK: Record<Role, number> = { editor: 1, admin: 2, owner: 3 };
-
-async function requireRole(uid: string, workspaceId: string, min: Role = "editor") {
-  const m = await db.doc(`workspaces/${workspaceId}/members/${uid}`).get();
-  const role = m.get("role") as Role | undefined;
-  if (!role || ROLE_RANK[role] < ROLE_RANK[min]) {
-    throw new HttpsError("permission-denied", "You don't have access to this workspace.");
-  }
-  return role;
-}
-
-async function loadBrand(workspaceId: string, brandId: string) {
-  const ref = db.doc(`workspaces/${workspaceId}/brands/${brandId}`);
-  const snap = await ref.get();
-  if (!snap.exists) throw new HttpsError("not-found", "Brand not found.");
-  return { ref, brand: snap.data() as Brand };
-}
 
 const monthKey = () => new Date().toISOString().slice(0, 7);
 
@@ -75,8 +37,6 @@ async function reserveImage(workspaceId: string) {
   return () => usageRef.set({ images: FieldValue.increment(-1) }, { merge: true }); // refund on failure
 }
 
-const ids = { workspaceId: z.string().min(1), brandId: z.string().min(1) };
-
 // ---------- 1. Onboarding ----------
 
 /** Creates a workspace, makes the caller its owner, and creates the first brand. */
@@ -84,12 +44,19 @@ export const createWorkspace = onCall(async (req) => {
   const uid = requireAuth(req);
   const input = parse(
     z.object({
-      workspaceName: z.string().trim().min(2).max(80),
-      brandName: z.string().trim().min(2).max(80),
-      industry: z.string().trim().min(2).max(80),
+      workspaceName: z.string().trim().min(2).max(80).default("My business"),
+      brandName: z.string().trim().min(2).max(80).default("My business"),
+      industry: z.string().trim().min(2).max(80).default("Other"),
     }),
     req.data,
   );
+
+  // Idempotent: if the app retries, return the workspace this user already has.
+  const existing = (await db.doc(`users/${uid}`).get()).get("defaultWorkspaceId") as string | undefined;
+  if (existing) {
+    const brands = await db.collection(`workspaces/${existing}/brands`).orderBy("createdAt").limit(1).get();
+    if (!brands.empty) return { workspaceId: existing, brandId: brands.docs[0].id };
+  }
 
   const wsRef = db.collection("workspaces").doc();
   const brandRef = wsRef.collection("brands").doc();
@@ -112,8 +79,9 @@ export const createWorkspace = onCall(async (req) => {
     tone: "friendly and professional",
     colors,
     colorSource: "custom",
+    setupComplete: false, // the app shows the connect + confirm steps until this is true
     createdAt: FieldValue.serverTimestamp(),
-  } satisfies Brand & { createdAt: unknown });
+  } satisfies Brand & { createdAt: unknown; setupComplete: boolean });
   batch.set(
     db.doc(`users/${uid}`),
     { email: req.auth?.token.email ?? null, defaultWorkspaceId: wsRef.id, updatedAt: FieldValue.serverTimestamp() },
@@ -150,6 +118,7 @@ export const createBrand = onCall(async (req) => {
       tone: "friendly and professional",
       colors: brandColorsFromPalette([]),
       colorSource: "custom",
+      setupComplete: false,
       createdAt: FieldValue.serverTimestamp(),
     });
   });

@@ -43,6 +43,8 @@ class Brand {
   final BrandColors colors;
   final String colorSource;
   final List<String> logoPalette;
+  final bool setupComplete;
+  final Map<String, Map<String, dynamic>> channels;
 
   Brand({
     required this.id,
@@ -59,7 +61,11 @@ class Brand {
     required this.colors,
     required this.colorSource,
     this.logoPalette = const [],
+    this.setupComplete = true,
+    this.channels = const {},
   });
+
+  Map<String, dynamic>? channel(Provider p) => channels[p.name];
 
   factory Brand.fromDoc(String id, Map<String, dynamic> d) => Brand(
         id: id,
@@ -76,6 +82,11 @@ class Brand {
         colors: BrandColors.fromMap((d['colors'] as Map?)?.cast<String, dynamic>()),
         colorSource: d['colorSource'] ?? 'custom',
         logoPalette: ((d['logoPalette'] as List?) ?? []).map((e) => (e as Map)['hex'] as String).toList(),
+        // Brands created before the connect step existed count as set up.
+        setupComplete: d['setupComplete'] as bool? ?? true,
+        channels: ((d['channels'] as Map?) ?? {}).map(
+          (k, v) => MapEntry(k as String, Map<String, dynamic>.from(v as Map)),
+        ),
       );
 }
 
@@ -124,4 +135,50 @@ class Post {
 
   String get fullCaption => [caption, if (hashtags.isNotEmpty) hashtags.map((h) => '#$h').join(' ')].join('\n\n');
   double get aspect => switch (format) { 'portrait' => 4 / 5, 'landscape' => 4 / 3, _ => 1.0 };
+}
+
+/// The three platforms a brand can connect.
+enum Provider {
+  facebook('Facebook', 'Facebook Page', Icons.facebook, Color(0xFF1877F2)),
+  instagram('Instagram', 'Instagram account', Icons.camera_alt_outlined, Color(0xFFC13584)),
+  google('Google', 'Google Business Profile', Icons.storefront_outlined, Color(0xFF34A853));
+
+  final String label, profileLabel;
+  final IconData icon;
+  final Color color;
+  const Provider(this.label, this.profileLabel, this.icon, this.color);
+}
+
+class Candidate {
+  final String id, name;
+  final String? subtitle, pictureUrl;
+  final List<String> issues;
+  final String? instagramUsername;
+  Candidate.fromMap(Map m)
+      : id = m['id'] as String,
+        name = m['name'] as String? ?? '',
+        subtitle = m['subtitle'] as String?,
+        pictureUrl = m['pictureUrl'] as String?,
+        issues = ((m['issues'] as List?) ?? []).cast<String>(),
+        instagramUsername = (m['instagram'] as Map?)?['username'] as String?;
+}
+
+/// Server-written status of one platform connection for a brand.
+class Connection {
+  final Provider provider;
+  final String status; // waiting | connected | problem
+  final String? accountName, selectedId;
+  final List<Candidate> candidates;
+  final List<String> issues;
+  final List<String> missingPermissions;
+
+  Connection.fromDoc(this.provider, Map<String, dynamic> d)
+      : status = d['status'] as String? ?? 'waiting',
+        accountName = d['accountName'] as String?,
+        selectedId = d['selectedId'] as String?,
+        candidates = ((d['candidates'] as List?) ?? []).map((e) => Candidate.fromMap(e as Map)).toList(),
+        issues = ((d['issues'] as List?) ?? []).cast<String>(),
+        missingPermissions = ((d['missingPermissions'] as List?) ?? []).cast<String>();
+
+  Candidate? get selected => candidates.where((c) => c.id == selectedId).firstOrNull;
 }
